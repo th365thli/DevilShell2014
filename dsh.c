@@ -3,6 +3,7 @@
 void seize_tty(pid_t callingprocess_pgid); /* Grab control of the terminal for the calling process pgid.  */
 void continue_job(job_t *j); /* resume a stopped job */
 void spawn_job(job_t *j, bool fg); /* spawn a new job */
+void handle_job(job_t *j);
 
 job_t *first_job;
 
@@ -54,7 +55,6 @@ void spawn_job(job_t *j, bool fg)
 
 	pid_t pid;
 	process_t *p;
-	int status = 0;
 
 	for(p = j->first_process; p; p = p->next) {
 
@@ -82,8 +82,8 @@ void spawn_job(job_t *j, bool fg)
             set_child_pgid(j, p);
             /* YOUR CODE HERE?  Parent-side code for new process.  */
           }
-            if (fg == true) waitpid(pid, &status, WUNTRACED);
             /* YOUR CODE HERE?  Parent-side code for new job.*/
+            if (fg == true) handle_job(j);
 	    seize_tty(getpid()); // assign the terminal back to dsh
           }
 }
@@ -93,6 +93,16 @@ void continue_job(job_t *j)
 {
      if(kill(-j->pgid, SIGCONT) < 0)
           perror("kill(SIGCONT)");
+}
+
+/* Handles the job after it is completed or suspended */
+void handle_job(job_t *j) {
+	int status = 0;
+	pid_t pid = j->pgid;
+	waitpid(pid, &status, WUNTRACED);
+	j->first_process->status = status;
+        if (status == 0) j->first_process->completed = true;
+        else j->first_process->stopped = true;
 }
 
 /* Validates the existence of a directory */
@@ -147,9 +157,11 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 				char job_status[20];
 				if (current_job->first_process->completed == false) strcpy(job_status, "In Progress");
 				if (current_job->first_process->stopped == true) strcpy(job_status, "Stopped");
-				if (current_job->first_process->completed == true) strcpy(job_status, "Complete");
+				if (current_job->first_process->completed == true) {
+					strcpy(job_status, "Complete");
+					current_job->notified = true;
+				}
 				printf("%d (%s): %s\n", (int) current_job->pgid, job_status, current_job->commandinfo);
-				current_job->notified = true;
 			}
 			current_job = current_job->next;
 		}
@@ -201,7 +213,6 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 		return true;
         }
         else if (!strcmp("fg", argv[0])) {
-		int status = 0;
 		job_t *job;
 		pid_t pid;
         	if (argv[1] != NULL) {
@@ -214,7 +225,7 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 		}
 		seize_tty(pid);
 		continue_job(job);
-		waitpid(pid, &status, WUNTRACED);
+		handle_job(job);
 		seize_tty(getpid());
 		if (job != NULL) job->bg = false;
 		return true;

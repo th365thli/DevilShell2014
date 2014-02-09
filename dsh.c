@@ -4,6 +4,8 @@ void seize_tty(pid_t callingprocess_pgid); /* Grab control of the terminal for t
 void continue_job(job_t *j); /* resume a stopped job */
 void spawn_job(job_t *j, bool fg); /* spawn a new job */
 
+job_t *first_job;
+
 /* Sets the process group id for a given job and process */
 int set_child_pgid(job_t *j, process_t *p)
 {
@@ -79,13 +81,13 @@ void spawn_job(job_t *j, bool fg)
             p->pid = pid;
             set_child_pgid(j, p);
             /* YOUR CODE HERE?  Parent-side code for new process.  */
-            if (fg == true) wait(&status);
+            if (fg == true) waitpid(pid, &status, WUNTRACED);
           }
 
             /* YOUR CODE HERE?  Parent-side code for new job.*/
 	    seize_tty(getpid()); // assign the terminal back to dsh
 
-	}
+          }
 }
 
 /* Sends SIGCONT signal to wake up the blocked job */
@@ -114,6 +116,17 @@ bool is_directory(char* directory) {
 	}
 }
 
+/* Finds job with the given pid */
+job_t* find_job_by_pid (pid_t pid) {
+	job_t *job = first_job;
+	while (job != NULL) {
+		if (job->pgid != pid) job = job->next;
+		else {
+			break;
+		}	
+	}
+	return job;
+}
 
 /* 
  * builtin_cmd - If the user has typed a built-in command then execute
@@ -154,9 +167,7 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 				} else {
 					if (is_directory(strcat(buffer, path_dest))) {
 						if (buffer[strlen(buffer)-1] != '/') strcat(buffer, "/");
-					} else {
-						break;
-					}
+					} else break;
 				}
 				path_dest = strtok(NULL, "/");
 				if (path_dest == NULL) success = true;
@@ -166,15 +177,37 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 		return true;
         }
         else if (!strcmp("bg", argv[0])) {
-            /* Your code here */
+		job_t *job;
+		pid_t pid;
+        	if (argv[1] != NULL) {
+			pid = (pid_t) atoi(argv[1]);
+			job = find_job_by_pid(pid);
+		} else {
+			job = find_last_job(first_job);
+			pid = job->pgid;
+			
+		}
+		continue_job(job);
+		if (job != NULL) job->bg = false;
+		return true;
         }
         else if (!strcmp("fg", argv[0])) {
+		int status = 0;
+		job_t *job;
+		pid_t pid;
         	if (argv[1] != NULL) {
-			
+			pid = (pid_t) atoi(argv[1]);
+			job = find_job_by_pid(pid);
 		} else {
-			last_job->bg = false;
-			seize_tty(last_job->pgid);
+			job = find_last_job(first_job);
+			pid = job->pgid;
+			
 		}
+		seize_tty(pid);
+		continue_job(job);
+		waitpid(pid, &status, WUNTRACED);
+		seize_tty(getpid());
+		if (job != NULL) job->bg = false;
 		return true;
         }
         return false;       /* not a builtin command */
@@ -206,9 +239,7 @@ int main()
 					exit(EXIT_SUCCESS);
 		   		}
 				continue; /* NOOP; user entered return or spaces with return */
-			}
-
-		
+			}		
 
 		/* Your code goes here */
 		/* You need to loop through jobs list since a command line can contain ;*/
@@ -221,14 +252,19 @@ int main()
 		while (j != NULL) {
 			bool builtin = builtin_cmd(j, 0, j->first_process->argv);
 			if (!builtin) {
+				if(first_job == NULL) first_job = j;
+				else {
+					job_t* current_job = find_last_job(first_job);
+					current_job->next = j;
+				}				
 				if (!j->bg) spawn_job(j, true);
 				else spawn_job(j, false);
-			}
+			}			
 			j = j->next;
 		}
 
 		/* Only for debugging purposes to show parser output; turn off in the
 		 * final code */
-		if(PRINT_INFO) print_job(j);
+		if(PRINT_INFO) print_job(first_job);
 	}
 }

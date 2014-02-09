@@ -81,12 +81,10 @@ void spawn_job(job_t *j, bool fg)
             p->pid = pid;
             set_child_pgid(j, p);
             /* YOUR CODE HERE?  Parent-side code for new process.  */
-            if (fg == true) waitpid(pid, &status, WUNTRACED);
           }
-
+            if (fg == true) waitpid(pid, &status, WUNTRACED);
             /* YOUR CODE HERE?  Parent-side code for new job.*/
 	    seize_tty(getpid()); // assign the terminal back to dsh
-
           }
 }
 
@@ -143,8 +141,19 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
             exit(EXIT_SUCCESS);
 	}
         else if (!strcmp("jobs", argv[0])) {
-            /* Your code here */
-            return true;
+		job_t *current_job = first_job;
+		while (current_job != NULL) {
+			if (current_job->notified != true) {
+				char job_status[20];
+				if (current_job->first_process->completed == false) strcpy(job_status, "In Progress");
+				if (current_job->first_process->stopped == true) strcpy(job_status, "Stopped");
+				if (current_job->first_process->completed == true) strcpy(job_status, "Complete");
+				printf("%d (%s): %s\n", (int) current_job->pgid, job_status, current_job->commandinfo);
+				current_job->notified = true;
+			}
+			current_job = current_job->next;
+		}
+		return true;
         }
 	else if (!strcmp("cd", argv[0])) {
 		if (argv[1] != NULL) {
@@ -251,16 +260,21 @@ int main()
 		    /* spawn_job(j,false) */
 		while (j != NULL) {
 			bool builtin = builtin_cmd(j, 0, j->first_process->argv);
+			job_t* next = j->next;
 			if (!builtin) {
-				if(first_job == NULL) first_job = j;
+				if(first_job == NULL) {
+					first_job = j;
+					first_job->next = NULL;
+				}
 				else {
 					job_t* current_job = find_last_job(first_job);
 					current_job->next = j;
-				}				
+					j->next = NULL;
+				}
 				if (!j->bg) spawn_job(j, true);
 				else spawn_job(j, false);
-			}			
-			j = j->next;
+			}	
+			j = next;
 		}
 
 		/* Only for debugging purposes to show parser output; turn off in the

@@ -1,5 +1,7 @@
 #include "dsh.h"
 
+
+
 int isspace(int c); //check whether the char c is a space
 
 /* Initialize the members of job structure */
@@ -213,13 +215,32 @@ job_t* readcmdline(char *msg)
                     			}
 					current_process->ofile[iofile_seek++] = cmdline[cmdline_pos++];
 				}
+				char* outputFile = current_process->ofile; 
+				
+				/* these next few lines are for testing purposes. Delete when finished - Jerry */
+				char* tempoutFile = outputFile;
+				printf("Output file name: ");
+				while (*outputFile != '\0') {
+					printf("%c", *outputFile);
+					outputFile++;
+				}
+				outputFile = tempoutFile;
+				printf("\n");
+				
 				current_process->ofile[iofile_seek] = '\0';
 				current_job->mystdout = OUTPUT_FD;
 				while(isspace(cmdline[cmdline_pos])) {
+				printf("marker");
 					if(cmdline[cmdline_pos] == '\n')
 						break;
 					++cmdline_pos;
 				}
+				
+				int outputDesc = creat(outputFile, 0644);
+				printf("file descriptor number: %d\n", outputDesc);
+				dup2(outputDesc, STDOUT_FILENO);
+				close(outputDesc);
+				
 				valid_input = false;
 				break;
 

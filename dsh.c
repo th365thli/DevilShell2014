@@ -71,6 +71,27 @@ void spawn_job(job_t *j, bool fg)
             p->pid = getpid();	    
             new_child(j, p, fg);
 	    /* YOUR CODE HERE?  Child-side code for new process. */
+			char* outputFile = p->ofile; 
+			//char* inputFile = p->ifile;
+			/* these next few lines are for testing purposes. Delete when finished - Jerry */
+			char* tempoutFile = outputFile;
+			//char* tempinFile = inputFile;
+			
+			/* this piece of code handles input and output redirection */
+			if (outputFile != NULL) {	
+				printf("Output file name: \n");
+				while (*outputFile != '\0') {
+					printf("%c", *outputFile);
+					outputFile++;
+				}
+				outputFile = tempoutFile;
+				printf("\n");
+				int outputDesc = creat(outputFile, 0644);
+				printf("output file descriptor %d\n", outputDesc);
+				dup2(outputDesc, STDOUT_FILENO);
+				close(outputDesc);
+			}
+			
             execvp(p->argv[0], p->argv);
             perror("Error");
             exit(EXIT_FAILURE);  /* NOT REACHED */
@@ -81,6 +102,7 @@ void spawn_job(job_t *j, bool fg)
             p->pid = pid;
             set_child_pgid(j, p);
             /* YOUR CODE HERE?  Parent-side code for new process.  */
+			
           }
             /* YOUR CODE HERE?  Parent-side code for new job.*/
             if (fg == true) handle_job(j);
@@ -269,6 +291,8 @@ int main()
 		    /* spawn_job(j,true) */
 		    /* else */
 		    /* spawn_job(j,false) */
+		
+		
 		while (j != NULL) {
 			bool builtin = builtin_cmd(j, 0, j->first_process->argv);
 			job_t* next = j->next;
@@ -290,6 +314,6 @@ int main()
 
 		/* Only for debugging purposes to show parser output; turn off in the
 		 * final code */
-		if(PRINT_INFO) print_job(first_job);
+		//if(PRINT_INFO) print_job(first_job);
 	}
 }

@@ -72,14 +72,31 @@ void spawn_job(job_t *j, bool fg)
             new_child(j, p, fg);
 	    /* YOUR CODE HERE?  Child-side code for new process. */
 			char* outputFile = p->ofile; 
-			//char* inputFile = p->ifile;
+			char* inputFile = p->ifile;
 			/* these next few lines are for testing purposes. Delete when finished - Jerry */
 			char* tempoutFile = outputFile;
-			//char* tempinFile = inputFile;
+			char* tempinFile = inputFile;
 			
 			/* this piece of code handles input and output redirection */
-			if (outputFile != NULL) {	
-				printf("Output file name: \n");
+			if (inputFile != NULL) {
+				printf("Input file name: ");
+				while (*inputFile != '\0') {
+					printf("%c", *inputFile);
+					inputFile++;
+				}
+				inputFile = tempinFile;
+				printf("\n");
+				int inputDesc = open(inputFile, O_RDONLY, 0);
+				if (inputDesc < 1) {
+					printf("file not found \n");
+					exit(1);
+				}
+				printf("input file descripor %d\n", inputDesc);
+				dup2(inputDesc, STDIN_FILENO);
+				close(inputDesc);
+			}
+			else if (outputFile != NULL) {	
+				printf("Output file name: ");
 				while (*outputFile != '\0') {
 					printf("%c", *outputFile);
 					outputFile++;
@@ -87,11 +104,14 @@ void spawn_job(job_t *j, bool fg)
 				outputFile = tempoutFile;
 				printf("\n");
 				int outputDesc = creat(outputFile, 0644);
+				if (outputDesc < 1) {
+					printf("output file error");
+				}
 				printf("output file descriptor %d\n", outputDesc);
 				dup2(outputDesc, STDOUT_FILENO);
 				close(outputDesc);
 			}
-			
+				
             execvp(p->argv[0], p->argv);
             perror("Error");
             exit(EXIT_FAILURE);  /* NOT REACHED */
@@ -102,7 +122,6 @@ void spawn_job(job_t *j, bool fg)
             p->pid = pid;
             set_child_pgid(j, p);
             /* YOUR CODE HERE?  Parent-side code for new process.  */
-			
           }
             /* YOUR CODE HERE?  Parent-side code for new job.*/
             if (fg == true) handle_job(j);

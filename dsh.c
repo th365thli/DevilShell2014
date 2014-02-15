@@ -111,7 +111,6 @@ void spawn_job(job_t *j, bool fg)
 				dup2(outputDesc, STDOUT_FILENO);
 				close(outputDesc);
 			}
-				
             execvp(p->argv[0], p->argv);
             perror("Error");
             exit(EXIT_FAILURE);  /* NOT REACHED */
@@ -156,24 +155,27 @@ bool is_directory(char* directory) {
 			return true;
 		} else {
 			/* not a directory */
-			printf("%s exists but is not a valid directory\n", directory);
+			perror("Error");
 			return false;
 		}
 	} else {
-		printf("%s does not exist\n", directory);
+		perror("Error");
 		return false;
 	}
 }
 
 /* Finds job with the given pid */
 job_t* find_job_by_pid (pid_t pid) {
+	bool success = false;
 	job_t *job = first_job;
 	while (job != NULL) {
 		if (job->pgid != pid) job = job->next;
 		else {
+			success = true;
 			break;
 		}	
 	}
+	if (success == false) return NULL;
 	return job;
 }
 
@@ -246,11 +248,16 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 			job = find_job_by_pid(pid);
 		} else {
 			job = find_last_job(first_job);
-			pid = job->pgid;
+			if (job != NULL) pid = job->pgid;
 			
 		}
-		continue_job(job);
-		if (job != NULL) job->bg = false;
+		if (job != NULL) {
+			continue_job(job);
+			job->bg = false;
+		} else {
+			errno = 3;
+			perror("Error");
+		}
 		return true;
         }
         else if (!strcmp("fg", argv[0])) {
@@ -261,14 +268,19 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 			job = find_job_by_pid(pid);
 		} else {
 			job = find_last_job(first_job);
-			pid = job->pgid;
+			if (job != NULL) pid = job->pgid;
 			
 		}
-		seize_tty(pid);
-		continue_job(job);
-		handle_job(job);
-		seize_tty(getpid());
-		if (job != NULL) job->bg = false;
+		if (job != NULL) {
+			seize_tty(pid);
+			continue_job(job);
+			handle_job(job);
+			seize_tty(getpid());
+			if (job != NULL) job->bg = false;
+		} else {
+			errno = 3;
+			perror("Error");
+		}
 		return true;
         }
         return false;       /* not a builtin command */

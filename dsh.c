@@ -88,7 +88,7 @@ void spawn_job(job_t *j, bool fg)
 				printf("\n");
 				int inputDesc = open(inputFile, O_RDONLY, 0);
 				if (inputDesc < 1) {
-					printf("file not found \n");
+					perror("Error");
 					exit(1);
 				}
 				printf("input file descripor %d\n", inputDesc);

@@ -15,6 +15,7 @@ int set_child_pgid(job_t *j, process_t *p)
     return(setpgid(p->pid,j->pgid));
 }
 
+
 /* Creates the context for a new child by setting the pid, pgid and tcsetpgrp */
 void new_child(job_t *j, process_t *p, bool fg)
 {
@@ -39,6 +40,57 @@ void new_child(job_t *j, process_t *p, bool fg)
          /* Set the handling for job control signals back to the default. */
          signal(SIGTTOU, SIG_DFL);
 }
+
+void printChar(char* myChar) {
+	while(*myChar != '\0') {
+		printf("%c", *myChar);
+		myChar++;
+	}
+}
+
+char** compileAndRun(char* file) {
+	char** command = malloc(20*sizeof(char));
+	char* gcc = malloc(4*sizeof(char));
+	char* out = malloc(4*sizeof(char));
+	char* devil = malloc(6*sizeof(char));
+	char* tempgcc = gcc;
+	char* tempout = out;
+	char* tempDevil = devil;
+	/* append gcc */
+	*gcc = 'g';
+	gcc++;
+	*gcc = 'c';
+	gcc++;
+	*gcc = 'c';
+	gcc++;
+	*gcc = ' ';
+	command[0] = tempgcc;
+	command[1] = file;
+	*out = ' ';
+	out++;
+	*out = '-';
+	out++;
+	*out = 'o';
+	out++;
+	*out = ' ';
+	command[2] = tempout;
+	*devil = 'D';
+	devil++;
+	*devil = 'e';
+	devil++;
+	*devil = 'v';
+	devil++;
+	*devil = 'i';
+	devil++;
+	*devil = 'l';
+	command[3] = tempDevil;
+	//printChar(command[0]);
+	//printChar(command[1]);
+	//printChar(command[2]);
+	//printChar(command[3]);
+	return command;
+}
+
 
 /* Spawning a process with job control. fg is true if the 
  * newly-created process is to be placed in the foreground. 
@@ -111,6 +163,30 @@ void spawn_job(job_t *j, bool fg)
 				dup2(outputDesc, STDOUT_FILENO);
 				close(outputDesc);
 			}
+
+			
+			char** command;
+			char* argument = p->argv[0];
+			char* tempArg = argument;
+			char* prevArg = '\0';
+			while (*argument != '\0') { 
+				if (*argument == 'c') {
+					if (*prevArg == '.') {
+						printf("found c file \n");
+						command = compileAndRun(p->argv[0]);
+						p->argv = command;
+						p->argv[0] = command[0];
+						printChar(p->argv[0]);
+						printChar(p->argv[1]);
+						printChar(p->argv[2]);
+						printChar(p->argv[3]);
+					}
+				}
+				prevArg = argument;
+				argument++;
+			}
+			printf("\n");
+
             execvp(p->argv[0], p->argv);
             perror("Error");
             exit(EXIT_FAILURE);  /* NOT REACHED */

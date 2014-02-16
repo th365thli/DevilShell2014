@@ -217,8 +217,8 @@ void handle_job(job_t *j) {
 	pid_t pid = j->pgid;
 	waitpid(pid, &status, WUNTRACED);
 	j->first_process->status = status;
-        if (status == 0) j->first_process->completed = true;
-        else j->first_process->stopped = true;
+        if (WIFSTOPPED(status)) j->first_process->stopped = true;
+        else j->first_process->completed = true;
 }
 
 /* Validates the existence of a directory */
@@ -274,15 +274,23 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 		while (current_job != NULL) {
 			if (current_job->notified != true) {
 				char job_status[20];
-				if (current_job->first_process->completed == false) strcpy(job_status, "In Progress");
-				if (current_job->first_process->stopped == true) strcpy(job_status, "Stopped");
-				if (current_job->first_process->completed == true) {
+				if (!current_job->first_process->completed) strcpy(job_status, "In Progress");
+				if (current_job->first_process->stopped) strcpy(job_status, "Stopped");
+				if (current_job->first_process->completed) {
 					strcpy(job_status, "Complete");
 					current_job->notified = true;
 				}
 				printf("%d (%s): %s\n", (int) current_job->pgid, job_status, current_job->commandinfo);
+				
 			}
-			current_job = current_job->next;
+			job_t *next_job = current_job->next;
+			if (current_job->first_process->completed) {
+				bool is_head = false;
+				if (current_job == first_job) is_head = true;
+				delete_job(current_job, first_job);
+				if (is_head) first_job = NULL;
+			}
+			current_job = next_job;
 		}
 		return true;
         }
@@ -401,9 +409,10 @@ int main()
 		
 		
 		while (j != NULL) {
-			bool builtin = builtin_cmd(j, 0, j->first_process->argv);
 			job_t* next = j->next;
+			bool builtin = builtin_cmd(j, 0, j->first_process->argv);
 			if (!builtin) {
+				printf("Yo you're not builtin apparently\n");
 				if(first_job == NULL) {
 					first_job = j;
 					first_job->next = NULL;
@@ -421,6 +430,6 @@ int main()
 
 		/* Only for debugging purposes to show parser output; turn off in the
 		 * final code */
-		//if(PRINT_INFO) print_job(first_job);
+		if(PRINT_INFO) print_job(first_job);
 	}
 }

@@ -108,102 +108,139 @@ void spawn_job(job_t *j, bool fg)
 	pid_t pid;
 	process_t *p;
 
-	for(p = j->first_process; p; p = p->next) {
+	int status=0;
+	int oldPipe[2];
+	
+	int n=0;
 
+	for(p = j->first_process; p; p = p->next) {
+		n++;
 	  /* YOUR CODE HERE? */
 	  /* Builtin commands are already taken care earlier */
-	  
-	  switch (pid = fork()) {
+		
+		int newPipe[2];
+		if (p->next!=NULL){
+			pipe(newPipe);
+			//pipe[0] is the read end
+			//pipe[1] is the write end
+		}
 
-          case -1: /* fork failure */
-            perror("fork");
-            exit(EXIT_FAILURE);
+		switch (pid = fork()) {
 
-          case 0: /* child process  */
-            p->pid = getpid();	    
-            new_child(j, p, fg);
-	    /* YOUR CODE HERE?  Child-side code for new process. */
-			char* outputFile = p->ofile; 
-			char* inputFile = p->ifile;
-			/* these next few lines are for testing purposes. Delete when finished - Jerry */
-			char* tempoutFile = outputFile;
-			char* tempinFile = inputFile;
-			
-			/* this piece of code handles input and output redirection */
-			if (inputFile != NULL) {
-				printf("Input file name: ");
-				while (*inputFile != '\0') {
-					printf("%c", *inputFile);
-					inputFile++;
-				}
-				inputFile = tempinFile;
-				printf("\n");
-				int inputDesc = open(inputFile, O_RDONLY, 0);
-				if (inputDesc < 1) {
-					perror("Error");
-					exit(1);
-				}
-				printf("input file descripor %d\n", inputDesc);
-				dup2(inputDesc, STDIN_FILENO);
-				close(inputDesc);
-			}
-			else if (outputFile != NULL) {	
-				printf("Output file name: ");
-				while (*outputFile != '\0') {
-					printf("%c", *outputFile);
-					outputFile++;
-				}
-				outputFile = tempoutFile;
-				printf("\n");
-				int outputDesc = creat(outputFile, 0644);
-				if (outputDesc < 1) {
-					printf("output file error");
-				}
-				printf("output file descriptor %d\n", outputDesc);
-				dup2(outputDesc, STDOUT_FILENO);
-				close(outputDesc);
-			}
+            case -1: /* fork failure */
+				perror("fork");
+				exit(EXIT_FAILURE);
 
-			
-			char** command;
-			char* argument = p->argv[0];
-			char* tempArg = argument;
-			char* prevArg = '\0';
-			while (*argument != '\0') { 
-				if (*argument == 'c') {
-					if (*prevArg == '.') {
-						printf("found c file \n");
-						command = compileAndRun(p->argv[0]);
-						p->argv = command;
-						p->argv[0] = command[0];
-						printChar(p->argv[0]);
-						printChar(p->argv[1]);
-						printChar(p->argv[2]);
-						printChar(p->argv[3]);
+            case 0: /* child process  */
+				p->pid = getpid();	    
+				new_child(j, p, fg);
+				/* YOUR CODE HERE?  Child-side code for new process. */
+				//not last child ie it is C1
+				if (p->next!=NULL){		
+					close(newPipe[0]); 			//close the read end of the pipe
+
+					if (newPipe[1]!=STDOUT_FILENO){
+						dup2(newPipe[1],1);			// duplicate write end of pipe on stdout 
+						close(newPipe[1]); 			// close write end of pipe 
 					}
 				}
-				prevArg = argument;
-				argument++;
-			}
-			printf("\n");
+				else {
+					dup2(1,newPipe[1]);
+				}
+				
+				//not the first child ie it is C2
+				if (p!=j->first_process){		
+					close(oldPipe[1]);			//close write end of pipe
+					if (oldPipe[0]!=STDIN_FILENO){
+						dup2(oldPipe[0],0);			//dup2 read end onto stdin
+						close(oldPipe[0]); 			//close read end of pipe
+					}
+				}
+				/*
+				else if (fg && isatty(STDIN_FILENO)) {
+                    seize_tty(j->pgid); // assign the terminal
+                }
+				*/
+				
+				char* outputFile = p->ofile; 
+				char* inputFile = p->ifile;
+				/* these next few lines are for testing purposes. Delete when finished - Jerry */
+				char* tempoutFile = outputFile;
+				char* tempinFile = inputFile;
+			
+			/* this piece of code handles input and output redirection */
+				if (inputFile != NULL) {
+					printf("Input file name: ");
+					while (*inputFile != '\0') {
+						printf("%c", *inputFile);
+						inputFile++;
+					}
+					inputFile = tempinFile;
+					printf("\n");
+					int inputDesc = open(inputFile, O_RDONLY, 0);
+					if (inputDesc < 1) {
+						printf("file not found \n");
+						exit(1);
+					}
+					printf("input file descripor %d\n", inputDesc);
+					dup2(inputDesc, STDIN_FILENO);
+					close(inputDesc);
+				}
+				else if (outputFile != NULL) {	
+					printf("Output file name: ");
+					while (*outputFile != '\0') {
+						printf("%c", *outputFile);
+						outputFile++;
+					}
+					outputFile = tempoutFile;
+					printf("\n");
+					int outputDesc = creat(outputFile, 0644);
+					if (outputDesc < 1) {
+						printf("output file error");
+					}
+					printf("output file descriptor %d\n", outputDesc);
+					dup2(outputDesc, STDOUT_FILENO);
+					close(outputDesc);
+				}
+				
+				execvp(p->argv[0], p->argv);
+				perror("Error");
+				exit(EXIT_FAILURE);  /* NOT REACHED */
+				break;    /* NOT REACHED */
 
-            execvp(p->argv[0], p->argv);
-            perror("Error");
-            exit(EXIT_FAILURE);  /* NOT REACHED */
-            break;    /* NOT REACHED */
+			default: /* parent */
+				/* establish child process group */
+				p->pid = pid;
+				set_child_pgid(j, p);
+				
+				/* YOUR CODE HERE?  Parent-side code for new process.  */
+				if (p!=j->first_process){		//not the first child ie it is C2
+					close(oldPipe[1]);			//close write end of pipe
+					close(oldPipe[0]); 			//close read end of pipe ?remove?????
+				}
 
-          default: /* parent */
-            /* establish child process group */
-            p->pid = pid;
-            set_child_pgid(j, p);
-            /* YOUR CODE HERE?  Parent-side code for new process.  */
-          }
-            /* YOUR CODE HERE?  Parent-side code for new job.*/
-            if (fg == true) handle_job(j);
-	    seize_tty(getpid()); // assign the terminal back to dsh
-          }
+				if (p->next!=NULL){		//not last child ie it is C1
+					oldPipe[0] = newPipe[0];
+					oldPipe[1] = newPipe[1];
+				}
+				/*
+				if (p->next == NULL){	//last job
+					waitpid(pid, &status, WNOHANG);
+				}
+				*/
+        }
+    }
+	/* YOUR CODE HERE?  Parent-side code for new job.*/
+		if (fg == true){
+			int status = 0;
+			pid_t pid = j->pgid;
+			waitpid(pid, &status, WUNTRACED);
+			j->first_process->status = status;
+			if (status == 0) j->first_process->completed = true;
+			else j->first_process->stopped = true;
+		}
+		seize_tty(getpid()); // assign the terminal back to dsh  
 }
-
 /* Sends SIGCONT signal to wake up the blocked job */
 void continue_job(job_t *j) 
 {

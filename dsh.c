@@ -108,7 +108,6 @@ void spawn_job(job_t *j, bool fg)
 	pid_t pid;
 	process_t *p;
 
-	int status=0;
 	int oldPipe[2];
 	
 	int n=0;
@@ -231,14 +230,7 @@ void spawn_job(job_t *j, bool fg)
         }
     }
 	/* YOUR CODE HERE?  Parent-side code for new job.*/
-		if (fg == true){
-			int status = 0;
-			pid_t pid = j->pgid;
-			waitpid(pid, &status, WUNTRACED);
-			j->first_process->status = status;
-			if (status == 0) j->first_process->completed = true;
-			else j->first_process->stopped = true;
-		}
+		if (fg == true) handle_job(j);
 		seize_tty(getpid()); // assign the terminal back to dsh  
 }
 /* Sends SIGCONT signal to wake up the blocked job */

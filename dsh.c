@@ -412,7 +412,6 @@ int main()
 			job_t* next = j->next;
 			bool builtin = builtin_cmd(j, 0, j->first_process->argv);
 			if (!builtin) {
-				printf("Yo you're not builtin apparently\n");
 				if(first_job == NULL) {
 					first_job = j;
 					first_job->next = NULL;

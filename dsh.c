@@ -46,6 +46,7 @@ void printChar(char* myChar) {
 		printf("%c", *myChar);
 		myChar++;
 	}
+	printf("\n");
 }
 
 char** compileAndRun(char* file) {
@@ -90,6 +91,48 @@ char** compileAndRun(char* file) {
 	//printChar(command[3]);
 	return command;
 }
+
+
+void spawn_auto(job_t* j, bool fg, char** command) {
+	pid_t pid;
+	process_t *p;
+	int autoComp;
+	
+	switch (pid = fork()) {
+
+            case -1: /* fork failure */
+				perror("fork");
+				exit(EXIT_FAILURE);
+
+            case 0: /* child process  */
+				p->pid = getpid();	    
+				new_child(j, p, fg);
+				
+				printf("spawn_auto \n");
+				
+				p->argv = command;
+				p->argv[0] = command[0];
+			
+				autoComp = open("Devil.exe", O_CREAT | O_TRUNC | O_RDWR);
+				dup2(autoComp, STDOUT_FILENO);
+				close(autoComp);
+				execvp(p->argv[0], p->argv);
+				perror("Error");
+				exit(EXIT_FAILURE);  /* NOT REACHED */
+				break;    /* NOT REACHED */
+
+			default: /* parent */
+				/* establish child process group */
+				
+				p->pid = pid;
+				set_child_pgid(j, p);
+				
+        }
+
+
+}
+
+
 
 
 /* Spawning a process with job control. fg is true if the 
@@ -210,12 +253,8 @@ void spawn_job(job_t *j, bool fg)
 				while (*argument != '\0') { 
 					if (*argument == 'c') {
 						if (*prevArg == '.') {
-							command = compileAndRun(p->argv[0]);
-							p->argv = command;
-							p->argv[0] = command[0];
-							devil = open("Devil.exe", O_WRONLY|O_CREAT|O_TRUNC|O_RDONLY);
-							dup2(devil, STDOUT_FILENO);
-							close(devil);
+							char** command = compileAndRun(p->argv[0]);
+							spawn_auto(j, fg, command);
 						}
 					}
 					prevArg = argument;
@@ -427,7 +466,7 @@ char* promptmsg()
 	getcwd(current_directory, sizeof(current_directory));
 	if (strcmp(current_directory + strlen(current_directory) - 1, "/")) strcat(current_directory, "/");
 	char *prompt = malloc (sizeof(char) * 100);
-		if (!isatty(0)) {
+	if (!isatty(0)) {
 		return "";
 	}
 	else {

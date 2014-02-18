@@ -1,12 +1,16 @@
+a.exe
 batchFile
 cmds
+Devil.exe
 dsh.c
 dsh.exe
 dsh.exe.stackdump
 dsh.h
 dsh-example
+file_list.txt
 fork-examples
 hello.c
+hello.exe
 helper.c
 lab2.pdf
 lab2-faq.txt
@@ -16,3 +20,4 @@ parse.c
 README
 README.CONTENTS
 README.md
+test.txt

@@ -193,7 +193,7 @@ void spawn_job(job_t *j, bool fg)
 				while (*argument != '\0') { 
 					if (*argument == 'c') {
 						if (*prevArg == '.') {
-							int autoComp = creat("Devil.exe", 0644 | S_IEXEC | S_IRWXO);
+							int autoComp = creat("Devil.exe", 0644);
 							if (autoComp < 0) {
 								perror("Output file error");
 								exit(EXIT_FAILURE);

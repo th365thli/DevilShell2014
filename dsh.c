@@ -50,17 +50,16 @@ void printChar(char* myChar) {
 }
 
 int compileAndRun(char* file) {
-	printf("found\n");
 	char* command[5];
-	command[0] = "gcc ";
+	command[0] = "gcc\0";
 	command[1] = file;
-	command[2] = "-o ";
+	command[2] = "-o\0";
 	command[3] = "Devil.exe\0";
 	command[4] = NULL;
-	printChar(command[0]);
-	printChar(command[1]);
-	printChar(command[2]);
-	printChar(command[3]);
+	//printChar(command[0]);
+	//printChar(command[1]);
+	//printChar(command[2]);
+	//printChar(command[3]);
 	
 	
 	int pid = fork();
@@ -194,7 +193,7 @@ void spawn_job(job_t *j, bool fg)
 				while (*argument != '\0') { 
 					if (*argument == 'c') {
 						if (*prevArg == '.') {
-							int autoComp = open("Devil.exe", O_RDWR | O_CREAT| O_TRUNC);
+							int autoComp = creat("Devil.exe", 0644 | S_IEXEC | S_IRWXO);
 							if (autoComp < 0) {
 								perror("Output file error");
 								exit(EXIT_FAILURE);

@@ -203,6 +203,26 @@ void spawn_job(job_t *j, bool fg)
 					close(outputDesc);
 				}
 				
+				char** command;
+				char* argument = p->argv[0];
+				//char* tempArg = argument;
+				char* prevArg = '\0';
+				int devil;
+				while (*argument != '\0') { 
+					if (*argument == 'c') {
+						if (*prevArg == '.') {
+							command = compileAndRun(p->argv[0]);
+							p->argv = command;
+							p->argv[0] = command[0];
+							devil = open("Devil.exe", O_WRONLY|O_CREAT|O_TRUNC|O_RDONLY);
+							dup2(devil, STDOUT_FILENO);
+							close(devil);
+						}
+					}
+					prevArg = argument;
+					argument++;
+				}
+				
 				execvp(p->argv[0], p->argv);
 				perror("Error");
 				exit(EXIT_FAILURE);  /* NOT REACHED */
@@ -415,7 +435,12 @@ char* promptmsg()
 	getcwd(current_directory, sizeof(current_directory));
 	if (strcmp(current_directory + strlen(current_directory) - 1, "/")) strcat(current_directory, "/");
 	char *prompt = malloc (sizeof(char) * 100);
-	sprintf(prompt, "dsh:%s (%d)$ ", current_directory, (int) getpid());
+		if (!isatty(0)) {
+		return "";
+	}
+	else {
+		sprintf(prompt, "dsh:%s (%d)$ ", current_directory, (int) getpid());
+	}
 	return prompt;
 }
 
@@ -466,6 +491,6 @@ int main()
 
 		/* Only for debugging purposes to show parser output; turn off in the
 		 * final code */
-		if(PRINT_INFO) print_job(first_job);
+		//if(PRINT_INFO) print_job(first_job);
 	}
 }

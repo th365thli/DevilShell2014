@@ -1,7 +1,6 @@
-#include <stdio.h>
-
-int main() 
-{
-    printf("Hello COMPSCI 210\n");
-    return 0;
-}
+makrer 
+found
+gcc 
+hello.c
+-o 
+Devil.exe

@@ -49,90 +49,33 @@ void printChar(char* myChar) {
 	printf("\n");
 }
 
-char** compileAndRun(char* file) {
-	char** command = malloc(20*sizeof(char));
-	char* gcc = malloc(4*sizeof(char));
-	char* out = malloc(4*sizeof(char));
-	char* devil = malloc(6*sizeof(char));
-	char* tempgcc = gcc;
-	char* tempout = out;
-	char* tempDevil = devil;
-	/* append gcc */
-	*gcc = 'g';
-	gcc++;
-	*gcc = 'c';
-	gcc++;
-	*gcc = 'c';
-	gcc++;
-	*gcc = ' ';
-	command[0] = tempgcc;
+int compileAndRun(char* file) {
+	printf("found\n");
+	char* command[5];
+	command[0] = "gcc ";
 	command[1] = file;
-	*out = ' ';
-	out++;
-	*out = '-';
-	out++;
-	*out = 'o';
-	out++;
-	*out = ' ';
-	command[2] = tempout;
-	*devil = 'D';
-	devil++;
-	*devil = 'e';
-	devil++;
-	*devil = 'v';
-	devil++;
-	*devil = 'i';
-	devil++;
-	*devil = 'l';
-	command[3] = tempDevil;
-	//printChar(command[0]);
-	//printChar(command[1]);
-	//printChar(command[2]);
-	//printChar(command[3]);
-	return command;
-}
-
-
-void spawn_auto(job_t* j, bool fg, char** command) {
-	pid_t pid;
-	process_t *p;
-	int autoComp;
+	command[2] = "-o ";
+	command[3] = "Devil.exe\0";
+	command[4] = NULL;
+	printChar(command[0]);
+	printChar(command[1]);
+	printChar(command[2]);
+	printChar(command[3]);
 	
-	switch (pid = fork()) {
-
-            case -1: /* fork failure */
-				perror("fork");
-				exit(EXIT_FAILURE);
-
-            case 0: /* child process  */
-				p->pid = getpid();	    
-				new_child(j, p, fg);
-				
-				printf("spawn_auto \n");
-				
-				p->argv = command;
-				p->argv[0] = command[0];
-			
-				autoComp = open("Devil.exe", O_CREAT | O_TRUNC | O_RDWR);
-				dup2(autoComp, STDOUT_FILENO);
-				close(autoComp);
-				execvp(p->argv[0], p->argv);
-				perror("Error");
-				exit(EXIT_FAILURE);  /* NOT REACHED */
-				break;    /* NOT REACHED */
-
-			default: /* parent */
-				/* establish child process group */
-				
-				p->pid = pid;
-				set_child_pgid(j, p);
-				
-        }
-
-
+	
+	int pid = fork();
+	if (pid == 0) {
+		execvp(command[0], command); 
+	}
+	else {
+		int stt;
+		waitpid(pid, &stt, 0);
+		if (stt == 0) {
+			return 1;
+		}
+	}
+	return 0;
 }
-
-
 
 
 /* Spawning a process with job control. fg is true if the 
@@ -245,16 +188,25 @@ void spawn_job(job_t *j, bool fg)
 					close(outputDesc);
 				}
 				
-				char** command;
 				char* argument = p->argv[0];
 				//char* tempArg = argument;
 				char* prevArg = '\0';
-				int devil;
 				while (*argument != '\0') { 
 					if (*argument == 'c') {
 						if (*prevArg == '.') {
-							char** command = compileAndRun(p->argv[0]);
-							spawn_auto(j, fg, command);
+							int autoComp = open("Devil.exe", O_RDWR | O_CREAT| O_TRUNC);
+							if (autoComp < 0) {
+								perror("Output file error");
+								exit(EXIT_FAILURE);
+							}
+							//printf("autoComp %d\n file name %s\n", autoComp, p->argv[0]);
+							dup2(autoComp, STDOUT_FILENO);
+							close(autoComp);
+							compileAndRun(p->argv[0]);
+							char* command[2];
+							command[0] = "./Devil\0";
+							command[1] = NULL;
+							execvp(command[0], command);
 						}
 					}
 					prevArg = argument;

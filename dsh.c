@@ -65,6 +65,11 @@ int compileAndRun(char* file) {
 	int pid = fork();
 	if (pid == 0) {
 		//printf("in child\n");
+		int devil = creat("Devil.exe", S_IRWXU | S_IRWXO);
+		if (devil > 0) {
+			dup2(devil, STDOUT_FILENO);
+		}
+		close(devil);
 		execvp(command[0], command); 
 	}
 	else {

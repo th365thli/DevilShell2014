@@ -64,9 +64,11 @@ int compileAndRun(char* file) {
 	
 	int pid = fork();
 	if (pid == 0) {
+		//printf("in child\n");
 		execvp(command[0], command); 
 	}
 	else {
+	//	printf("in parent\n");
 		int stt;
 		waitpid(pid, &stt, 0);
 		if (stt == 0) {
@@ -193,14 +195,6 @@ void spawn_job(job_t *j, bool fg)
 				while (*argument != '\0') { 
 					if (*argument == 'c') {
 						if (*prevArg == '.') {
-							int autoComp = creat("Devil.exe", 0644);
-							if (autoComp < 0) {
-								perror("Output file error");
-								exit(EXIT_FAILURE);
-							}
-							//printf("autoComp %d\n file name %s\n", autoComp, p->argv[0]);
-							dup2(autoComp, STDOUT_FILENO);
-							close(autoComp);
 							compileAndRun(p->argv[0]);
 							char* command[2];
 							command[0] = "./Devil\0";

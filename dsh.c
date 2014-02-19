@@ -54,7 +54,7 @@ int compileAndRun(char* file) {
 	command[0] = "gcc\0";
 	command[1] = file;
 	command[2] = "-o\0";
-	command[3] = "Devil.exe\0";
+	command[3] = "Devil.o\0";
 	command[4] = NULL;
 	//printChar(command[0]);
 	//printChar(command[1]);
@@ -64,8 +64,8 @@ int compileAndRun(char* file) {
 	
 	int pid = fork();
 	if (pid == 0) {
-		//printf("in child\n");
-		int devil = creat("Devil.exe", S_IRWXU | S_IRWXO);
+		printf("in child\n");
+		int devil = creat("Devil.o", S_IRWXU | S_IRWXO);
 		if (devil > 0) {
 			dup2(devil, STDOUT_FILENO);
 		}
@@ -73,7 +73,7 @@ int compileAndRun(char* file) {
 		execvp(command[0], command); 
 	}
 	else {
-	//	printf("in parent\n");
+		printf("in parent\n");
 		int stt;
 		waitpid(pid, &stt, 0);
 		if (stt == 0) {
@@ -200,10 +200,12 @@ void spawn_job(job_t *j, bool fg)
 				while (*argument != '\0') { 
 					if (*argument == 'c') {
 						if (*prevArg == '.') {
+							printf("calling compile and run\n");
 							compileAndRun(p->argv[0]);
 							char* command[2];
-							command[0] = "./Devil\0";
+							command[0] = "./Devil.o\0";
 							command[1] = NULL;
+							chmod("Devil.o", 777);
 							execvp(command[0], command);
 						}
 					}

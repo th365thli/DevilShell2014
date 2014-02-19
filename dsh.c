@@ -64,7 +64,6 @@ int compileAndRun(char* file) {
 	
 	int pid = fork();
 	if (pid == 0) {
-		printf("in child\n");
 		int devil = creat("Devil.o", S_IRWXU | S_IRWXO);
 		if (devil > 0) {
 			dup2(devil, STDOUT_FILENO);
@@ -73,7 +72,6 @@ int compileAndRun(char* file) {
 		execvp(command[0], command); 
 	}
 	else {
-		printf("in parent\n");
 		int stt;
 		waitpid(pid, &stt, 0);
 		if (stt == 0) {
@@ -161,35 +159,21 @@ void spawn_job(job_t *j, bool fg)
 			
 			/* this piece of code handles input and output redirection */
 				if (inputFile != NULL) {
-					printf("Input file name: ");
-					while (*inputFile != '\0') {
-						printf("%c", *inputFile);
-						inputFile++;
-					}
 					inputFile = tempinFile;
-					printf("\n");
 					int inputDesc = open(inputFile, O_RDONLY, 0);
 					if (inputDesc < 1) {
 						printf("file not found \n");
 						exit(1);
 					}
-					printf("input file descripor %d\n", inputDesc);
 					dup2(inputDesc, STDIN_FILENO);
 					close(inputDesc);
 				}
 				else if (outputFile != NULL) {	
-					printf("Output file name: ");
-					while (*outputFile != '\0') {
-						printf("%c", *outputFile);
-						outputFile++;
-					}
 					outputFile = tempoutFile;
-					printf("\n");
 					int outputDesc = creat(outputFile, 0644);
 					if (outputDesc < 1) {
 						printf("output file error");
 					}
-					printf("output file descriptor %d\n", outputDesc);
 					dup2(outputDesc, STDOUT_FILENO);
 					close(outputDesc);
 				}
@@ -200,7 +184,6 @@ void spawn_job(job_t *j, bool fg)
 				while (*argument != '\0') { 
 					if (*argument == 'c') {
 						if (*prevArg == '.') {
-							printf("calling compile and run\n");
 							compileAndRun(p->argv[0]);
 							char* command[2];
 							command[0] = "./Devil.o\0";

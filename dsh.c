@@ -56,13 +56,12 @@ int compileAndRun(char* file) {
 	command[2] = "-o\0";
 	command[3] = "Devil.o\0";
 	command[4] = NULL;
-	//printChar(command[0]);
-	//printChar(command[1]);
-	//printChar(command[2]);
-	//printChar(command[3]);
-	
 	
 	int pid = fork();
+	
+	if (pid == -1){
+		//some error stuff here about fork failing-----------------------------------------------------------WILL
+	}
 	if (pid == 0) {
 		int devil = creat("Devil.o", S_IRWXU | S_IRWXO);
 		if (devil > 0) {
@@ -70,6 +69,8 @@ int compileAndRun(char* file) {
 		}
 		close(devil);
 		execvp(command[0], command); 
+		//some error if we reach here (somthing about not being about to execute ------------------------------------------------WILL
+		exit(EXIT_FAILURE);//not reached
 	}
 	else {
 		int stt;
@@ -99,11 +100,8 @@ void spawn_job(job_t *j, bool fg)
 	process_t *p;
 
 	int oldPipe[2];
-	
-	int n=0;
 
 	for(p = j->first_process; p; p = p->next) {
-		n++;
 	  /* YOUR CODE HERE? */
 	  /* Builtin commands are already taken care earlier */
 		
@@ -162,7 +160,7 @@ void spawn_job(job_t *j, bool fg)
 					inputFile = tempinFile;
 					int inputDesc = open(inputFile, O_RDONLY, 0);
 					if (inputDesc < 1) {
-						printf("file not found \n");
+						printf("file not found \n");//-------------------------------------------------add error here
 						exit(1);
 					}
 					dup2(inputDesc, STDIN_FILENO);
@@ -172,32 +170,37 @@ void spawn_job(job_t *j, bool fg)
 					outputFile = tempoutFile;
 					int outputDesc = creat(outputFile, 0644);
 					if (outputDesc < 1) {
-						printf("output file error");
+						printf("output file error");//-------------------------------------------------add error here
 					}
 					dup2(outputDesc, STDOUT_FILENO);
 					close(outputDesc);
 				}
 				
 				char* argument = p->argv[0];
-				//char* tempArg = argument;
-				char* prevArg = '\0';
-				while (*argument != '\0') { 
-					if (*argument == 'c') {
-						if (*prevArg == '.') {
-							compileAndRun(p->argv[0]);
-							char* command[2];
-							command[0] = "./Devil.o\0";
-							command[1] = NULL;
-							chmod("Devil.o", 777);
-							execvp(command[0], command);
+				
+				if (!strcmp(argument,"cat")){
+				}
+				else{
+					char* prevArg = '\0';
+					while (*argument != '\0') { 
+						if (*argument == 'c') {
+							if (*prevArg == '.') {
+								compileAndRun(p->argv[0]);
+								char* command[2];
+								command[0] = "./Devil.o\0";
+								command[1] = NULL;
+								chmod("Devil.o", 777);
+								execvp(command[0], command);
+							}
 						}
+						prevArg = argument;
+						argument++;
 					}
-					prevArg = argument;
-					argument++;
 				}
 				
 				execvp(p->argv[0], p->argv);
-				perror("Error");
+				perror("Error");//-------------------------------------------------------------------add error here
+				//some about child should have done an exec but failed. ggxx
 				exit(EXIT_FAILURE);  /* NOT REACHED */
 				break;    /* NOT REACHED */
 
@@ -412,7 +415,6 @@ char* promptmsg()
 
 int main() 
 {
-
 	init_dsh();
 	DEBUG("Successfully initialized\n");
 	while(1) {

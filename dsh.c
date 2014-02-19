@@ -4,7 +4,8 @@ void seize_tty(pid_t callingprocess_pgid); /* Grab control of the terminal for t
 void continue_job(job_t *j); /* resume a stopped job */
 void spawn_job(job_t *j, bool fg); /* spawn a new job */
 void handle_job(job_t *j);
-
+void error_handling(int errNum, bool write);
+int fileErr;
 job_t *first_job;
 
 /* Sets the process group id for a given job and process */
@@ -26,7 +27,7 @@ void new_child(job_t *j, process_t *p, bool fg)
          /* Put the process into the process group and give the process
           * group the terminal, if appropriate.  This has to be done both by
           * the dsh and in the individual child processes because of
-          * potential race conditions.  
+          * potential race conditions.
           * */
 
          p->pid = getpid();
@@ -56,11 +57,11 @@ int compileAndRun(char* file) {
 	command[2] = "-o\0";
 	command[3] = "Devil.o\0";
 	command[4] = NULL;
-	
+
 	int pid = fork();
-	
+
 	if (pid == -1){
-		//some error stuff here about fork failing-----------------------------------------------------------WILL
+		perror("fork failed");
 	}
 	if (pid == 0) {
 		int devil = creat("Devil.o", S_IRWXU | S_IRWXO);
@@ -68,8 +69,8 @@ int compileAndRun(char* file) {
 			dup2(devil, STDOUT_FILENO);
 		}
 		close(devil);
-		execvp(command[0], command); 
-		//some error if we reach here (somthing about not being about to execute ------------------------------------------------WILL
+		execvp(command[0], command);
+		dup2(errno,1);
 		exit(EXIT_FAILURE);//not reached
 	}
 	else {
@@ -83,28 +84,28 @@ int compileAndRun(char* file) {
 }
 
 
-/* Spawning a process with job control. fg is true if the 
- * newly-created process is to be placed in the foreground. 
- * (This implicitly puts the calling process in the background, 
- * so watch out for tty I/O after doing this.) pgid is -1 to 
- * create a new job, in which case the returned pid is also the 
- * pgid of the new job.  Else pgid specifies an existing job's 
- * pgid: this feature is used to start the second or 
+/* Spawning a process with job control. fg is true if the
+ * newly-created process is to be placed in the foreground.
+ * (This implicitly puts the calling process in the background,
+ * so watch out for tty I/O after doing this.) pgid is -1 to
+ * create a new job, in which case the returned pid is also the
+ * pgid of the new job.  Else pgid specifies an existing job's
+ * pgid: this feature is used to start the second or
  * subsequent processes in a pipeline.
  * */
 
-void spawn_job(job_t *j, bool fg) 
+void spawn_job(job_t *j, bool fg)
 {
 
 	pid_t pid;
 	process_t *p;
 
 	int oldPipe[2];
-
+	j->mystderr = fileErr;
 	for(p = j->first_process; p; p = p->next) {
 	  /* YOUR CODE HERE? */
 	  /* Builtin commands are already taken care earlier */
-		
+
 		int newPipe[2];
 		if (p->next!=NULL){
 			pipe(newPipe);
@@ -115,28 +116,28 @@ void spawn_job(job_t *j, bool fg)
 		switch (pid = fork()) {
 
             case -1: /* fork failure */
-				perror("fork");
+				perror("fork failed");
 				exit(EXIT_FAILURE);
 
             case 0: /* child process  */
-				p->pid = getpid();	    
+				p->pid = getpid();
 				new_child(j, p, fg);
 				/* YOUR CODE HERE?  Child-side code for new process. */
 				//not last child ie it is C1
-				if (p->next!=NULL){		
+				if (p->next!=NULL){
 					close(newPipe[0]); 			//close the read end of the pipe
 
 					if (newPipe[1]!=STDOUT_FILENO){
-						dup2(newPipe[1],1);			// duplicate write end of pipe on stdout 
-						close(newPipe[1]); 			// close write end of pipe 
+						dup2(newPipe[1],1);			// duplicate write end of pipe on stdout
+						close(newPipe[1]); 			// close write end of pipe
 					}
 				}
 				else {
 					dup2(1,newPipe[1]);
 				}
-				
+
 				//not the first child ie it is C2
-				if (p!=j->first_process){		
+				if (p!=j->first_process){
 					close(oldPipe[1]);			//close write end of pipe
 					if (oldPipe[0]!=STDIN_FILENO){
 						dup2(oldPipe[0],0);			//dup2 read end onto stdin
@@ -148,41 +149,41 @@ void spawn_job(job_t *j, bool fg)
                     seize_tty(j->pgid); // assign the terminal
                 }
 				*/
-				
-				char* outputFile = p->ofile; 
+
+				char* outputFile = p->ofile;
 				char* inputFile = p->ifile;
 				/* these next few lines are for testing purposes. Delete when finished - Jerry */
 				char* tempoutFile = outputFile;
 				char* tempinFile = inputFile;
-			
+
 			/* this piece of code handles input and output redirection */
 				if (inputFile != NULL) {
 					inputFile = tempinFile;
 					int inputDesc = open(inputFile, O_RDONLY, 0);
 					if (inputDesc < 1) {
-						printf("file not found \n");//-------------------------------------------------add error here
+						error_handling(2,true);
 						exit(1);
 					}
 					dup2(inputDesc, STDIN_FILENO);
 					close(inputDesc);
 				}
-				else if (outputFile != NULL) {	
+				else if (outputFile != NULL) {
 					outputFile = tempoutFile;
 					int outputDesc = creat(outputFile, 0644);
 					if (outputDesc < 1) {
-						printf("output file error");//-------------------------------------------------add error here
+						error_handling(2,true);
 					}
 					dup2(outputDesc, STDOUT_FILENO);
 					close(outputDesc);
 				}
-				
+
 				char* argument = p->argv[0];
-				
+
 				if (!strcmp(argument,"cat")){
 				}
 				else{
 					char* prevArg = '\0';
-					while (*argument != '\0') { 
+					while (*argument != '\0') {
 						if (*argument == 'c') {
 							if (*prevArg == '.') {
 								compileAndRun(p->argv[0]);
@@ -197,10 +198,9 @@ void spawn_job(job_t *j, bool fg)
 						argument++;
 					}
 				}
-				
+
 				execvp(p->argv[0], p->argv);
-				perror("Error");//-------------------------------------------------------------------add error here
-				//some about child should have done an exec but failed. ggxx
+				perror("Error");
 				exit(EXIT_FAILURE);  /* NOT REACHED */
 				break;    /* NOT REACHED */
 
@@ -208,7 +208,7 @@ void spawn_job(job_t *j, bool fg)
 				/* establish child process group */
 				p->pid = pid;
 				set_child_pgid(j, p);
-				
+
 				/* YOUR CODE HERE?  Parent-side code for new process.  */
 				if (p!=j->first_process){		//not the first child ie it is C2
 					close(oldPipe[1]);			//close write end of pipe
@@ -228,10 +228,18 @@ void spawn_job(job_t *j, bool fg)
     }
 	/* YOUR CODE HERE?  Parent-side code for new job.*/
 		if (fg == true) handle_job(j);
-		seize_tty(getpid()); // assign the terminal back to dsh  
+		seize_tty(getpid()); // assign the terminal back to dsh
 }
+
+void error_handling(int errNum, bool write) {
+	errno = errNum;
+	perror("Error");
+	if (write == true)
+		dup2(errno, 2);
+}
+
 /* Sends SIGCONT signal to wake up the blocked job */
-void continue_job(job_t *j) 
+void continue_job(job_t *j)
 {
      if(kill(-j->pgid, SIGCONT) < 0)
           perror("kill(SIGCONT)");
@@ -257,11 +265,11 @@ bool is_directory(char* directory) {
 			return true;
 		} else {
 			/* not a directory */
-			perror("Error");
+			error_handling(20,false);
 			return false;
 		}
 	} else {
-		perror("Error");
+		error_handling(2,false);
 		return false;
 	}
 }
@@ -275,17 +283,17 @@ job_t* find_job_by_pid (pid_t pid) {
 		else {
 			success = true;
 			break;
-		}	
+		}
 	}
 	if (success == false) return NULL;
 	return job;
 }
 
-/* 
+/*
  * builtin_cmd - If the user has typed a built-in command then execute
- * it immediately.  
+ * it immediately.
  */
-bool builtin_cmd(job_t *last_job, int argc, char **argv) 
+bool builtin_cmd(job_t *last_job, int argc, char **argv)
 {
 
 	    /* check whether the cmd is a built in command
@@ -307,7 +315,7 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 					current_job->notified = true;
 				}
 				printf("%d (%s): %s\n", (int) current_job->pgid, job_status, current_job->commandinfo);
-				
+
 			}
 			job_t *next_job = current_job->next;
 			if (current_job->first_process->completed) {
@@ -359,14 +367,13 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 		} else {
 			job = find_last_job(first_job);
 			if (job != NULL) pid = job->pgid;
-			
+
 		}
 		if (job != NULL) {
 			continue_job(job);
 			job->bg = false;
 		} else {
-			errno = 3;
-			perror("Error");
+			error_handling(3,false);
 		}
 		return true;
         }
@@ -379,7 +386,7 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 		} else {
 			job = find_last_job(first_job);
 			if (job != NULL) pid = job->pgid;
-			
+
 		}
 		if (job != NULL) {
 			seize_tty(pid);
@@ -388,8 +395,7 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 			seize_tty(getpid());
 			if (job != NULL) job->bg = false;
 		} else {
-			errno = 3;
-			perror("Error");
+			error_handling(3,false);
 		}
 		return true;
         }
@@ -397,7 +403,7 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 }
 
 /* Build prompt messaage */
-char* promptmsg() 
+char* promptmsg()
 {
     /* Modify this to include pid */
 	char current_directory[256];
@@ -413,9 +419,15 @@ char* promptmsg()
 	return prompt;
 }
 
-int main() 
+int main()
 {
 	init_dsh();
+	int fileErr = open ("dsh.log" , O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+	if (fileErr < 0)
+		error_handling(5,false);
+	else
+		dup2(fileErr, STDERR_FILENO);
+		close(fileErr);
 	DEBUG("Successfully initialized\n");
 	while(1) {
 		job_t *j = NULL;
@@ -426,7 +438,7 @@ int main()
 					exit(EXIT_SUCCESS);
 		   		}
 				continue; /* NOOP; user entered return or spaces with return */
-			}		
+			}
 
 		/* Your code goes here */
 		/* You need to loop through jobs list since a command line can contain ;*/
@@ -436,8 +448,8 @@ int main()
 		    /* spawn_job(j,true) */
 		    /* else */
 		    /* spawn_job(j,false) */
-		
-		
+
+
 		while (j != NULL) {
 			job_t* next = j->next;
 			bool builtin = builtin_cmd(j, 0, j->first_process->argv);
@@ -453,7 +465,7 @@ int main()
 				}
 				if (!j->bg) spawn_job(j, true);
 				else spawn_job(j, false);
-			}	
+			}
 			j = next;
 		}
 

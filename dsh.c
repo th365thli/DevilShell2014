@@ -242,14 +242,6 @@ void spawn_job(job_t *j, bool fg)
 		seize_tty(getpid()); // assign the terminal back to dsh
 }
 
-// void error_handling(int errNum, bool write) {
-// 	errno = errNum;
-// 	perror("Error");
-// 	if (write == true)
-// 		fprintf(stderr, errno);
-// }
-
-
 /* Sends SIGCONT signal to wake up the blocked job */
 void continue_job(job_t *j)
 {

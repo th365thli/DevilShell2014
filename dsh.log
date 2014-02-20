@@ -1,3 +1,42 @@
-Error: No such process
-cat: sdfjsdfdsf: No such file or directory
-kill(SIGCONT): No such process
+At Wed Feb 19 23:42:34 2014
+-> Error: bad file descriptor for input
+
+At Wed Feb 19 23:43:04 2014
+-> Error: fg job not found
+
+At Wed Feb 19 23:43:05 2014
+-> Error: bg job not found
+
+cat: sfdsfs: No such file or directory
+Error: bad file descriptor for input: No such file or directory
+At Wed Feb 19 23:43:10 2014
+-> Error: bad file descriptor for input
+
+cat: dgdfgf: No such file or directory
+At Wed Feb 19 23:44:21 2014
+-> Error: bad file descriptor for input
+
+cat: ddtst: No such file or directory
+Error: bad file descriptor for input
+At Wed Feb 19 23:46:01 2014
+-> Error: bad file descriptor for input
+
+At Wed Feb 19 23:46:01 2014
+-> Error: bad file descriptor for input
+
+Error: bad file descriptor for input
+At Wed Feb 19 23:47:23 2014
+-> Error: bad file descriptor for input
+
+At Wed Feb 19 23:47:23 2014
+-> Error: bad file descriptor for input
+
+Error: bad file descriptor for input: No such file or directory
+At Wed Feb 19 23:49:25 2014
+-> Error: bad file descriptor for input
+
+Error: bad file descriptor for input: No such file or directory
+cat: dfsdf: No such file or directory
+At Wed Feb 19 23:59:03 2014
+-> Error: kill(SIGCONT)
+

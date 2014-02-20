@@ -1,13 +1,29 @@
 #include "dsh.h"
+#include <time.h>
+
+#define DEFAULT_LOG_NAME "dsh.log"
 
 void seize_tty(pid_t callingprocess_pgid); /* Grab control of the terminal for the calling process pgid.  */
 void continue_job(job_t *j); /* resume a stopped job */
 void spawn_job(job_t *j, bool fg); /* spawn a new job */
 void handle_job(job_t *j);
-void error_handling(int errNum, bool write);
-int fileErr;
+
 job_t *first_job;
 
+void unix_error(char *msg, int out_fd) {
+    if (out_fd >= 0) {
+        write(out_fd, msg, strlen(msg));
+        write(out_fd, "\n", strlen("\n"));
+    }
+    time_t seconds = time(NULL);
+    char* err_time = ctime(&seconds);
+    char* time_msg = "At ";
+    char* err_msg = malloc(sizeof(time_msg) + sizeof(err_time) + sizeof(msg) + 300);
+    sprintf(err_msg, "%s%s-> %s\n\n", time_msg, err_time, msg);
+    int fileErr = open(DEFAULT_LOG_NAME, O_CREAT | O_WRONLY | O_APPEND, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+    write(fileErr, err_msg, strlen(err_msg));
+    free(err_msg);
+}
 /* Sets the process group id for a given job and process */
 int set_child_pgid(job_t *j, process_t *p)
 {
@@ -54,7 +70,8 @@ int compileAndRun(char* file) {
 	int pid = fork();			//fork new process
 
 	if (pid == -1){				//if bad pid exit
-		perror("fork failed:");
+		perror("Error: fork failed:");
+		unix_error("Error: fork failed:", -1);
 		exit(EXIT_FAILURE);
 	}
 	if (pid == 0) {				//if child
@@ -65,7 +82,9 @@ int compileAndRun(char* file) {
 		close(devil);							//close file
 		execvp(command[0], command);			//execute compile command
 		dup2(errno,1);
-		perror("execute failed:");
+		char* error_msg = "Error: The new child should have done an exec (g++) but failed to do so.";
+        perror(error_msg);
+        unix_error(error_msg, -1);
 		exit(EXIT_FAILURE);//not reached
 	}
 	else {			//if parent, do nothing besides reap child
@@ -96,7 +115,6 @@ void spawn_job(job_t *j, bool fg)
 	process_t *p;
 
 	int oldPipe[2];
-	j->mystderr = fileErr;
 	for(p = j->first_process; p; p = p->next) {
 	  /* YOUR CODE HERE? */
 	  /* Builtin commands are already taken care earlier */
@@ -111,11 +129,17 @@ void spawn_job(job_t *j, bool fg)
 		switch (pid = fork()) {
 
             case -1: /* fork failure */
-				perror("fork failed:");
+				perror("Error: failed to fork");
+				unix_error("Error: failed to fork", -1);
 				exit(EXIT_FAILURE);
 
             case 0: /* child process  */
 				p->pid = getpid();
+
+				//log errors
+				int fileErr = open (DEFAULT_LOG_NAME, O_CREAT | O_WRONLY | O_APPEND, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+				dup2(fileErr, STDERR_FILENO);
+
 				new_child(j, p, fg);
 				/* YOUR CODE HERE?  Child-side code for new process. */
 				//not last child ie it is C1
@@ -148,7 +172,9 @@ void spawn_job(job_t *j, bool fg)
 				if (inputFile != NULL) {							//if p->ifile exists
 					int inputDesc = open(inputFile, O_RDONLY, 0);	//open the file
 					if (inputDesc < 1) {
-						error_handling(2,true);						//error handling if bad file (eg. does not exist)
+						char* error = "Error: bad file descriptor for input";
+						perror(error);
+						unix_error(error, -1);						//error handling if bad file (eg. does not exist)
 						exit(1);
 					}
 					dup2(inputDesc, STDIN_FILENO);					//duplicate standard input to file
@@ -157,7 +183,9 @@ void spawn_job(job_t *j, bool fg)
 				else if (outputFile != NULL) {						//if p->ofile exists
 					int outputDesc = creat(outputFile, 0644);		//create the file
 					if (outputDesc < 1) {
-						error_handling(2,true);						//error handling if file is bad
+						char* error = "bad file descriptor for output";
+						perror(error);
+						unix_error(error, -1);						//error handling if file is bad
 					}
 					dup2(outputDesc, STDOUT_FILENO);				//copy stdout
 					close(outputDesc);								//close file
@@ -186,7 +214,9 @@ void spawn_job(job_t *j, bool fg)
 				}
 
 				execvp(p->argv[0], p->argv);
-				error_handling(8,true);
+				char* error_msg = "Error: The new child should have done an exec but failed to do so.";
+				perror(error_msg);
+				unix_error(error_msg, -1);
 				exit(EXIT_FAILURE);  /* NOT REACHED */
 				break;    /* NOT REACHED */
 
@@ -212,18 +242,20 @@ void spawn_job(job_t *j, bool fg)
 		seize_tty(getpid()); // assign the terminal back to dsh
 }
 
-void error_handling(int errNum, bool write) {
-	errno = errNum;
-	perror("Error");
-	if (write == true)
-		dup2(errno, STDERR_FILENO);
-}
+// void error_handling(int errNum, bool write) {
+// 	errno = errNum;
+// 	perror("Error");
+// 	if (write == true)
+// 		fprintf(stderr, errno);
+// }
+
 
 /* Sends SIGCONT signal to wake up the blocked job */
 void continue_job(job_t *j)
 {
      if(kill(-j->pgid, SIGCONT) < 0)
-          perror("kill(SIGCONT)");
+         perror("kill(SIGCONT)");
+      	 unix_error("Error: kill(SIGCONT)", -1);
 }
 
 /* Handles the job after it is completed or suspended */
@@ -246,11 +278,11 @@ bool is_directory(char* directory) {
 			return true;
 		} else {
 			/* not a directory */
-			error_handling(20,false);
+			unix_error("not a directory", STDERR_FILENO);
 			return false;
 		}
 	} else {
-		error_handling(2,false);
+		unix_error("no such file or directory", STDERR_FILENO);
 		return false;
 	}
 }
@@ -354,7 +386,7 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 			continue_job(job);
 			job->bg = false;
 		} else {
-			error_handling(3,false);
+			unix_error("Error: bg job not found", STDERR_FILENO);
 		}
 		return true;
         }
@@ -376,7 +408,7 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 			seize_tty(getpid());
 			if (job != NULL) job->bg = false;
 		} else {
-			error_handling(3,false);
+			unix_error("Error: fg job not found", 2);
 		}
 		return true;
         }
@@ -403,12 +435,6 @@ char* promptmsg()
 int main()
 {
 	init_dsh();
-	int fileErr = open ("dsh.log" , O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
-	if (fileErr < 0)
-		error_handling(5,false);
-	else
-		dup2(fileErr, STDERR_FILENO);
-		close(fileErr);
 	DEBUG("Successfully initialized\n");
 	while(1) {
 		job_t *j = NULL;
@@ -449,7 +475,6 @@ int main()
 			}
 			j = next;
 		}
-
 		/* Only for debugging purposes to show parser output; turn off in the
 		 * final code */
 		//if(PRINT_INFO) print_job(first_job);

@@ -42,7 +42,7 @@ void new_child(job_t *j, process_t *p, bool fg)
          signal(SIGTTOU, SIG_DFL);
 }
 
-void printChar(char* myChar) {
+void printChar(char* myChar) {//-----------------------------------------------------------do we need this?
 	while(*myChar != '\0') {
 		printf("%c", *myChar);
 		myChar++;
@@ -50,6 +50,7 @@ void printChar(char* myChar) {
 	printf("\n");
 }
 
+/*this function forks a child to compile the .c file to a Devil.o */
 int compileAndRun(char* file) {
 	char* command[5];
 	command[0] = "gcc\0";
@@ -61,7 +62,8 @@ int compileAndRun(char* file) {
 	int pid = fork();
 
 	if (pid == -1){
-		perror("fork failed");
+		perror("fork failed");//-----------------------------------------------------------change this
+		exit(EXIT_FAILURE);
 	}
 	if (pid == 0) {
 		int devil = creat("Devil.o", S_IRWXU | S_IRWXO);
@@ -71,6 +73,7 @@ int compileAndRun(char* file) {
 		close(devil);
 		execvp(command[0], command);
 		dup2(errno,1);
+		perror("child couldnt compile file")////-----------------------------------------------------------change this
 		exit(EXIT_FAILURE);//not reached
 	}
 	else {
@@ -116,7 +119,7 @@ void spawn_job(job_t *j, bool fg)
 		switch (pid = fork()) {
 
             case -1: /* fork failure */
-				perror("fork failed");
+				perror("fork failed");//-----------------------------------------------------------change this
 				exit(EXIT_FAILURE);
 
             case 0: /* child process  */
@@ -125,7 +128,7 @@ void spawn_job(job_t *j, bool fg)
 				/* YOUR CODE HERE?  Child-side code for new process. */
 				//not last child ie it is C1
 				if (p->next!=NULL){
-					close(newPipe[0]); 			//close the read end of the pipe
+					close(newPipe[0]); 				//close the read end of the pipe
 
 					if (newPipe[1]!=STDOUT_FILENO){
 						dup2(newPipe[1],1);			// duplicate write end of pipe on stdout
@@ -138,17 +141,12 @@ void spawn_job(job_t *j, bool fg)
 
 				//not the first child ie it is C2
 				if (p!=j->first_process){
-					close(oldPipe[1]);			//close write end of pipe
+					close(oldPipe[1]);				//close write end of pipe
 					if (oldPipe[0]!=STDIN_FILENO){
 						dup2(oldPipe[0],0);			//dup2 read end onto stdin
 						close(oldPipe[0]); 			//close read end of pipe
 					}
 				}
-				/*
-				else if (fg && isatty(STDIN_FILENO)) {
-                    seize_tty(j->pgid); // assign the terminal
-                }
-				*/
 
 				char* outputFile = p->ofile;
 				char* inputFile = p->ifile;
@@ -156,7 +154,7 @@ void spawn_job(job_t *j, bool fg)
 				char* tempoutFile = outputFile;
 				char* tempinFile = inputFile;
 
-			/* this piece of code handles input and output redirection */
+				/* this piece of code handles input and output redirection */
 				if (inputFile != NULL) {
 					inputFile = tempinFile;
 					int inputDesc = open(inputFile, O_RDONLY, 0);
@@ -177,16 +175,16 @@ void spawn_job(job_t *j, bool fg)
 					close(outputDesc);
 				}
 
+				/*this code handles auto compilation*/
 				char* argument = p->argv[0];
-
-				if (!strcmp(argument,"cat")){
+				if (!strcmp(argument,"cat")){//this is to prevent autocompilation from messing up cat
 				}
 				else{
 					char* prevArg = '\0';
-					while (*argument != '\0') {
+					while (*argument != '\0') {//checks for the ".c" argument
 						if (*argument == 'c') {
 							if (*prevArg == '.') {
-								compileAndRun(p->argv[0]);
+								compileAndRun(p->argv[0]);//this function forks a child to compile the c file
 								char* command[2];
 								command[0] = "./Devil.o\0";
 								command[1] = NULL;
@@ -200,7 +198,7 @@ void spawn_job(job_t *j, bool fg)
 				}
 
 				execvp(p->argv[0], p->argv);
-				perror("Error");
+				perror("Error");//-----------------------------------------------------------change this
 				exit(EXIT_FAILURE);  /* NOT REACHED */
 				break;    /* NOT REACHED */
 
@@ -219,11 +217,6 @@ void spawn_job(job_t *j, bool fg)
 					oldPipe[0] = newPipe[0];
 					oldPipe[1] = newPipe[1];
 				}
-				/*
-				if (p->next == NULL){	//last job
-					waitpid(pid, &status, WNOHANG);
-				}
-				*/
         }
     }
 	/* YOUR CODE HERE?  Parent-side code for new job.*/

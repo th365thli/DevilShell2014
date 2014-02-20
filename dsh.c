@@ -335,6 +335,9 @@ bool builtin_cmd(job_t *last_job, int argc, char **argv)
 				bool is_head = false;
 				if (current_job == first_job) is_head = true;
 				delete_job(current_job, first_job);
+				char status_change[500];
+				sprintf(status_change, "job %d (%s) terminated normally", current_job->pgid, current_job->commandinfo);
+				unix_error(status_change, -1);
 				if (is_head) first_job = NULL;
 			}
 			current_job = next_job;

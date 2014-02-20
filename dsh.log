@@ -40,3 +40,17 @@ cat: dfsdf: No such file or directory
 At Wed Feb 19 23:59:03 2014
 -> Error: kill(SIGCONT)
 
+At Thu Feb 20 00:00:16 2014
+-> Error: fg job not found
+
+At Thu Feb 20 00:00:19 2014
+-> Error: bg job not found
+
+cat: rterte: No such file or directory
+Error: bad file descriptor for input: No such file or directory
+At Thu Feb 20 00:00:44 2014
+-> Error: bad file descriptor for input
+
+At Thu Feb 20 00:24:00 2014
+-> Error: fg job not found
+

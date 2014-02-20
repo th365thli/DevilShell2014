@@ -42,14 +42,6 @@ void new_child(job_t *j, process_t *p, bool fg)
          signal(SIGTTOU, SIG_DFL);
 }
 
-void printChar(char* myChar) {//-----------------------------------------------------------do we need this?
-	while(*myChar != '\0') {
-		printf("%c", *myChar);
-		myChar++;
-	}
-	printf("\n");
-}
-
 /*this function forks a child to compile the .c file to a Devil.o */
 int compileAndRun(char* file) {
 	char* command[5];			//this block of code assembles the compile command
@@ -62,23 +54,23 @@ int compileAndRun(char* file) {
 	int pid = fork();			//fork new process
 
 	if (pid == -1){				//if bad pid exit
-		perror("fork failed");//-----------------------------------------------------------change this
+		perror("fork failed:");
 		exit(EXIT_FAILURE);
 	}
 	if (pid == 0) {				//if child
 		int devil = creat("Devil.o", S_IRWXU | S_IRWXO);	//create the Devil.exe file and set appropriate permissions
 		if (devil > 0) {
-			dup2(devil, STDOUT_FILENO);			//duplicate 
+			dup2(devil, STDOUT_FILENO);			//duplicate
 		}
 		close(devil);							//close file
 		execvp(command[0], command);			//execute compile command
 		dup2(errno,1);
-		perror("child couldnt compile file");////-----------------------------------------------------------change this
+		perror("execute failed:");
 		exit(EXIT_FAILURE);//not reached
 	}
 	else {			//if parent, do nothing besides reap child
 		int stt;
-		waitpid(pid, &stt, 0);	
+		waitpid(pid, &stt, 0);
 		if (stt == 0) {
 			return 1;
 		}
@@ -119,7 +111,7 @@ void spawn_job(job_t *j, bool fg)
 		switch (pid = fork()) {
 
             case -1: /* fork failure */
-				perror("fork failed");//-----------------------------------------------------------change this
+				perror("fork failed:");
 				exit(EXIT_FAILURE);
 
             case 0: /* child process  */
@@ -147,11 +139,11 @@ void spawn_job(job_t *j, bool fg)
 						close(oldPipe[0]); 			//close read end of pipe
 					}
 				}
-				
+
 				/*get output and input file*/
 				char* outputFile = p->ofile;
 				char* inputFile = p->ifile;
-				
+
 				/* this piece of code handles input and output redirection */
 				if (inputFile != NULL) {							//if p->ifile exists
 					int inputDesc = open(inputFile, O_RDONLY, 0);	//open the file
@@ -161,10 +153,10 @@ void spawn_job(job_t *j, bool fg)
 					}
 					dup2(inputDesc, STDIN_FILENO);					//duplicate standard input to file
 					close(inputDesc);								//close file
-				}	
+				}
 				else if (outputFile != NULL) {						//if p->ofile exists
 					int outputDesc = creat(outputFile, 0644);		//create the file
-					if (outputDesc < 1) {							
+					if (outputDesc < 1) {
 						error_handling(2,true);						//error handling if file is bad
 					}
 					dup2(outputDesc, STDOUT_FILENO);				//copy stdout
@@ -194,7 +186,7 @@ void spawn_job(job_t *j, bool fg)
 				}
 
 				execvp(p->argv[0], p->argv);
-				perror("Error");//-----------------------------------------------------------change this
+				error_handling(8,true);
 				exit(EXIT_FAILURE);  /* NOT REACHED */
 				break;    /* NOT REACHED */
 
@@ -224,7 +216,7 @@ void error_handling(int errNum, bool write) {
 	errno = errNum;
 	perror("Error");
 	if (write == true)
-		dup2(errno, 2);
+		dup2(errno, STDERR_FILENO);
 }
 
 /* Sends SIGCONT signal to wake up the blocked job */

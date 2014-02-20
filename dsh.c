@@ -73,7 +73,7 @@ int compileAndRun(char* file) {
 		close(devil);
 		execvp(command[0], command);
 		dup2(errno,1);
-		perror("child couldnt compile file")////-----------------------------------------------------------change this
+		perror("child couldnt compile file");////-----------------------------------------------------------change this
 		exit(EXIT_FAILURE);//not reached
 	}
 	else {

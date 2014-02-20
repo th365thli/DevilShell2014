@@ -52,33 +52,33 @@ void printChar(char* myChar) {//------------------------------------------------
 
 /*this function forks a child to compile the .c file to a Devil.o */
 int compileAndRun(char* file) {
-	char* command[5];
+	char* command[5];			//this block of code assembles the compile command
 	command[0] = "gcc\0";
 	command[1] = file;
 	command[2] = "-o\0";
 	command[3] = "Devil.o\0";
 	command[4] = NULL;
 
-	int pid = fork();
+	int pid = fork();			//fork new process
 
-	if (pid == -1){
+	if (pid == -1){				//if bad pid exit
 		perror("fork failed");//-----------------------------------------------------------change this
 		exit(EXIT_FAILURE);
 	}
-	if (pid == 0) {
-		int devil = creat("Devil.o", S_IRWXU | S_IRWXO);
+	if (pid == 0) {				//if child
+		int devil = creat("Devil.o", S_IRWXU | S_IRWXO);	//create the Devil.exe file and set appropriate permissions
 		if (devil > 0) {
-			dup2(devil, STDOUT_FILENO);
+			dup2(devil, STDOUT_FILENO);			//duplicate 
 		}
-		close(devil);
-		execvp(command[0], command);
+		close(devil);							//close file
+		execvp(command[0], command);			//execute compile command
 		dup2(errno,1);
-		perror("child couldnt compile file")////-----------------------------------------------------------change this
+		perror("child couldnt compile file");////-----------------------------------------------------------change this
 		exit(EXIT_FAILURE);//not reached
 	}
-	else {
+	else {			//if parent, do nothing besides reap child
 		int stt;
-		waitpid(pid, &stt, 0);
+		waitpid(pid, &stt, 0);	
 		if (stt == 0) {
 			return 1;
 		}
@@ -147,32 +147,28 @@ void spawn_job(job_t *j, bool fg)
 						close(oldPipe[0]); 			//close read end of pipe
 					}
 				}
-
+				
+				/*get output and input file*/
 				char* outputFile = p->ofile;
 				char* inputFile = p->ifile;
-				/* these next few lines are for testing purposes. Delete when finished - Jerry */
-				char* tempoutFile = outputFile;
-				char* tempinFile = inputFile;
-
+				
 				/* this piece of code handles input and output redirection */
-				if (inputFile != NULL) {
-					inputFile = tempinFile;
-					int inputDesc = open(inputFile, O_RDONLY, 0);
+				if (inputFile != NULL) {							//if p->ifile exists
+					int inputDesc = open(inputFile, O_RDONLY, 0);	//open the file
 					if (inputDesc < 1) {
-						error_handling(2,true);
+						error_handling(2,true);						//error handling if bad file (eg. does not exist)
 						exit(1);
 					}
-					dup2(inputDesc, STDIN_FILENO);
-					close(inputDesc);
-				}
-				else if (outputFile != NULL) {
-					outputFile = tempoutFile;
-					int outputDesc = creat(outputFile, 0644);
-					if (outputDesc < 1) {
-						error_handling(2,true);
+					dup2(inputDesc, STDIN_FILENO);					//duplicate standard input to file
+					close(inputDesc);								//close file
+				}	
+				else if (outputFile != NULL) {						//if p->ofile exists
+					int outputDesc = creat(outputFile, 0644);		//create the file
+					if (outputDesc < 1) {							
+						error_handling(2,true);						//error handling if file is bad
 					}
-					dup2(outputDesc, STDOUT_FILENO);
-					close(outputDesc);
+					dup2(outputDesc, STDOUT_FILENO);				//copy stdout
+					close(outputDesc);								//close file
 				}
 
 				/*this code handles auto compilation*/
@@ -186,10 +182,10 @@ void spawn_job(job_t *j, bool fg)
 							if (*prevArg == '.') {
 								compileAndRun(p->argv[0]);//this function forks a child to compile the c file
 								char* command[2];
-								command[0] = "./Devil.o\0";
+								command[0] = "./Devil.o\0";		//build execute command string
 								command[1] = NULL;
 								chmod("Devil.o", 777);
-								execvp(command[0], command);
+								execvp(command[0], command);	//execute string
 							}
 						}
 						prevArg = argument;
